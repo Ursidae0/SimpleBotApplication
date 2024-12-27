@@ -11,7 +11,6 @@ from Calculate_Day_Number_Exponential import getValues
 SECOND = 1
 MINUTE = 60 * SECOND
 HOUR = 60 * MINUTE
-MULTIPLIER = 1.05
 RETRY_ATTEMPTS = 3
 RETRY_DELAY = 10 * SECOND
 STEP_LENGTH = 100

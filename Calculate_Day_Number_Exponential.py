@@ -1,5 +1,6 @@
 import numpy as np
-from Daily_Message_App_For_Telegram import STEP_LENGTH,MULTIPLIER
+STEP_LENGTH = 100
+MULTIPLIER = 1.05
 
 def getValues() -> np.ndarray:
     valueArray = np.zeros(STEP_LENGTH)
