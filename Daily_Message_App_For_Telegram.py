@@ -99,5 +99,6 @@ def checkInitialValues():
         sys.exit(1)
 
 if __name__ == "__main__":
+    print("Starting the program...")
     hour, minute = checkInitialValues()
     adjustTime(hour, minute)
