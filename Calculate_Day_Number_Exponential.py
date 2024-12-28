@@ -1,6 +1,5 @@
 import numpy as np
-STEP_LENGTH = 100
-MULTIPLIER = 1.05
+from Constants import STEP_LENGTH,MULTIPLIER
 
 def getValues() -> np.ndarray:
     valueArray = np.zeros(STEP_LENGTH)

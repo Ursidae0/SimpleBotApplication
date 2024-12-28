@@ -7,13 +7,7 @@ import logging
 import time
 import sys
 from Calculate_Day_Number_Exponential import getValues
-
-SECOND = 1
-MINUTE = 60 * SECOND
-HOUR = 60 * MINUTE
-RETRY_ATTEMPTS = 3
-RETRY_DELAY = 10 * SECOND
-STEP_LENGTH = 100
+from Constants import STEP_LENGTH,RETRY_ATTEMPTS,RETRY_DELAY
 
 # Configure logging
 def exists(filepath: str) -> bool:
@@ -50,16 +44,16 @@ def checkTokenChatid() -> tuple[str, str]:
         sys.exit(1)
     return token, chat_id
 
-def send_daily_message():
+def send_daily_message(hour: int, minute: int):
     token, chat_id = checkTokenChatid()
     data = getValues() #
     index = 0
-    send_message(data, index, token, chat_id)
+    send_message(data, index, token, chat_id,hour=hour, minute=minute)
     if index == STEP_LENGTH - 1:
         logging.info("All messages sent. Exiting the program.")
         sys.exit(0)
 
-def send_message(data: np.ndarray, index: int, token: str, chat_id: str):
+def send_message(data: np.ndarray, index: int, token: str, chat_id: str,hour: int, minute: int):
     message = f"Today you should do {data[index]:.0f} pushups and situps."
     logging.info(f"Sending message: {message}")
     for attempt in range(RETRY_ATTEMPTS):
@@ -72,7 +66,7 @@ def send_message(data: np.ndarray, index: int, token: str, chat_id: str):
             time.sleep(RETRY_DELAY)
     index = (index + 1) % len(data)  
 
-    next_run = (dt.datetime.now() + dt.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    next_run = dt.timedelta(days=1).replace(hour=hour, minute=minute, second=0, microsecond=0)
     delay = (next_run - dt.datetime.now()).total_seconds()
     threading.Timer(delay, lambda: send_message(data, index, token, chat_id)).start()
 
