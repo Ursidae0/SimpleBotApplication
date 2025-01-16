@@ -76,7 +76,7 @@ def adjustTime(hour: int = 6, minute: int = 0):
         target += dt.timedelta(days=1)
     delay = (target - now).total_seconds()
     logging.info(f"Scheduling daily message at {target}")
-    threading.Timer(delay, send_daily_message(hour,minute)).start()
+    threading.Timer(delay, lambda: send_daily_message(hour,minute)).start()
 
 def checkInitialValues():
     if len(sys.argv) != 3:
