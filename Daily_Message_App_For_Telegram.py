@@ -66,7 +66,7 @@ def send_message(data: np.ndarray, index: int, token: str, chat_id: str,hour: in
             time.sleep(RETRY_DELAY)
     index = (index + 1) % len(data)  
 
-    next_run = dt.timedelta(days=1).replace(hour=hour, minute=minute, second=0, microsecond=0)
+    next_run = (dt.datetime.now()+dt.timedelta(days=1)).replace(hour=hour, minute=minute, second=0, microsecond=0)
     delay = (next_run - dt.datetime.now()).total_seconds()
     threading.Timer(delay, lambda: send_message(data, index, token, chat_id)).start()
 
