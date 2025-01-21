@@ -68,7 +68,7 @@ def send_message(data: np.ndarray, index: int, token: str, chat_id: str,hour: in
 
     next_run = (dt.datetime.now()+dt.timedelta(days=1)).replace(hour=hour, minute=minute, second=0, microsecond=0)
     delay = (next_run - dt.datetime.now()).total_seconds()
-    threading.Timer(delay, lambda: send_message(data, index, token, chat_id)).start()
+    threading.Timer(delay, lambda: send_message(data, index, token, chat_id,hour=hour,minute=minute)).start()
 
 def adjustTime(hour: int = 6, minute: int = 0):
     now = dt.datetime.now()
