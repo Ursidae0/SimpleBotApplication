@@ -1,85 +1,146 @@
-# Daily Message App for Telegram
+# Daily Fitness Telegram Bot
 
-This script allows you to schedule and send daily motivational messages to a specified Telegram chat using a Telegram bot.
+A lightweight Python daemon that sends a daily workout message to a Telegram chat at a scheduled time. The message count increments each day using a compound exponential progression — starting at 10 reps and growing by 5% daily over a 100-day program.
 
-## Features
-- Automatically sends a motivational message every day at a scheduled time.
-- Dynamically generates daily tasks, such as the number of pushups and situps, based on a progression model.
-- Includes retry logic for failed message deliveries.
-- Configurable via environment variables.
+Designed to run persistently in the background (e.g., on a home server or Raspberry Pi) without any external scheduler like cron.
 
-## Prerequisites
-- Python 3.6+
-- A Telegram bot token (generated via [BotFather](https://core.telegram.org/bots#botfather)).
-- Your Telegram chat ID (can be obtained using the bot or other Telegram tools).
+---
+
+## How It Works
+
+### Progression Model
+
+```python
+# Calculate_Day_Number_Exponential.py
+day_n = floor(10 * 1.05 ** n)   # n = 0..99
+```
+
+Starting at 10 reps on day 0, the count grows exponentially at 5% per day:
+
+| Day | Reps |
+|---|---|
+| 0 | 10 |
+| 10 | 16 |
+| 30 | 43 |
+| 60 | 184 |
+| 99 | 1,315 |
+
+### Scheduling Mechanism
+
+The bot uses `threading.Timer` for scheduling rather than blocking sleep loops or cron. On each successful send, a new timer is set for `now + 24h` at the target wall-clock time. This avoids drift that would accumulate with `time.sleep(86400)`.
+
+```python
+next_run = (datetime.now() + timedelta(days=1)).replace(hour=h, minute=m, second=0)
+delay = (next_run - datetime.now()).total_seconds()
+threading.Timer(delay, lambda: send_message(...)).start()
+```
+
+### Retry Logic
+
+Failed Telegram API calls are retried up to 3 times with a 10-second delay between attempts. HTTP errors are caught via `response.raise_for_status()`. All events (sends, failures, retries) are written to `daily_message.log`.
+
+---
+
+## Architecture
+
+```
+Daily_Message_App_For_Telegram.py   - Entry point, scheduler, retry logic
+Calculate_Day_Number_Exponential.py - Exponential progression array (100 days)
+Constants.py                        - STEP_LENGTH=100, MULTIPLIER=1.05, RETRY_ATTEMPTS=3
+```
+
+The `Constants.py` separation means the progression curve (multiplier, length) and retry behavior can be tuned without touching the scheduling logic.
+
+---
 
 ## Setup
 
-### Install Required Libraries
-Install the dependencies using pip:
+### 1. Install Dependencies
+
 ```bash
 pip install requests numpy
 ```
 
-### Set Environment Variables
-Set the following environment variables to configure the script:
+### 2. Create a Telegram Bot
 
-- `TELEGRAM_BOT_TOKEN`: Your Telegram bot token.
-- `TELEGRAM_CHAT_ID`: The chat ID of the recipient.
+1. Open Telegram, search for `@BotFather`
+2. Run `/newbot` and follow the prompts
+3. Copy the bot token
 
-Example (Linux/Mac):
+### 3. Get Your Chat ID
+
+Send a message to your bot, then call:
+```
+https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates
+```
+The `chat.id` field in the response is your Chat ID.
+
+### 4. Set Environment Variables
+
 ```bash
-export TELEGRAM_BOT_TOKEN="<your_bot_token>"
-export TELEGRAM_CHAT_ID="<your_chat_id>"
+# Linux / macOS
+export TELEGRAM_BOT_TOKEN="your_bot_token_here"
+export TELEGRAM_CHAT_ID="your_chat_id_here"
 ```
 
-Example (Windows):
 ```cmd
-set TELEGRAM_BOT_TOKEN=<your_bot_token>
-set TELEGRAM_CHAT_ID=<your_chat_id>
+:: Windows
+set TELEGRAM_BOT_TOKEN=your_bot_token_here
+set TELEGRAM_CHAT_ID=your_chat_id_here
 ```
 
-### Logging Permissions
-Ensure the log file (`daily_message.log`) has proper permissions:
-```bash
-chmod 600 daily_message.log
-```
+Credentials are never stored in code — they are read exclusively from environment variables at startup.
 
-## Usage
-Run the script with the desired hour and minute for the daily message:
+### 5. Run
 
 ```bash
 python Daily_Message_App_For_Telegram.py <hour> <minute>
 ```
 
-- `<hour>`: The hour of the day (24-hour format) to send the message.
-- `<minute>`: The minute of the hour to send the message.
-
-### Example
-To send a message at 7:30 AM every day:
+Example — send at 07:30 AM daily:
 ```bash
 python Daily_Message_App_For_Telegram.py 7 30
 ```
 
-## How It Works
-1. The script reads the bot token and chat ID from environment variables.
-2. It generates a list of progressively increasing tasks (e.g., pushups and situps) using a multiplier.
-3. It sends a message at the scheduled time each day and retries up to 3 times in case of failure.
-4. Logs are maintained in `daily_message.log` for debugging and monitoring.
+---
 
-## Example Output
-Telegram message sent by the bot:
+## Deployment Notes
+
+For long-running use, keep the process alive with a process manager:
+
+```bash
+# Using nohup (simplest)
+nohup python Daily_Message_App_For_Telegram.py 7 30 &
+
+# Using systemd (recommended for Linux servers)
+# Create /etc/systemd/system/fitbot.service
+# See systemd documentation for service unit file format
 ```
-Today you should do 10 pushups and situps.
+
+**Log rotation:** `daily_message.log` grows unbounded. Set up `logrotate` if running for extended periods.
+
+**Token security:** Rotate your bot token periodically via BotFather. Never commit the token to version control — always use environment variables or a secrets manager.
+
+---
+
+## Customization
+
+| Parameter | Location | Description |
+|---|---|---|
+| `STEP_LENGTH` | `Constants.py` | Number of days in the program (default: 100) |
+| `MULTIPLIER` | `Constants.py` | Daily growth rate (default: 1.05 = 5%) |
+| `RETRY_ATTEMPTS` | `Constants.py` | API call retries before giving up (default: 3) |
+| `RETRY_DELAY` | `Constants.py` | Seconds between retries (default: 10) |
+| Message text | `send_message()` | Edit the f-string to change the message format |
+
+To change the exercise type, edit `send_message()` in `Daily_Message_App_For_Telegram.py`:
+```python
+message = f"Today you should do {data[index]:.0f} pushups and situps."
+# Change to any exercise of your choice
 ```
 
-## Notes
-- Ensure your bot is added to the target chat (and granted admin privileges if necessary).
-- Rotate your bot token periodically for security.
-- Handle large group chat IDs carefully, as they may have special formatting.
-
-## Contributing
-Feel free to contribute to this project by submitting issues or pull requests.
+---
 
 ## License
-This project is licensed under the MIT License. See the LICENSE file for details.
+
+MIT — see `LICENSE` for details.
